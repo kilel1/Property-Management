@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRentLedger, formatKSh } from '../composables/useRentLedger';
+import { useAuth } from '../composables/useAuth';
 
 // Reusable UI components
 import MetricCard from '../components/ui/MetricCard.vue';
@@ -9,6 +10,7 @@ import FilterTabs from '../components/ui/FilterTabs.vue';
 import ActionButton from '../components/ui/ActionButton.vue';
 
 const { stats, processedUnits, financialSummary, selectedMonth } = useRentLedger();
+const { currentUser, isAdmin, isOwner, isManager } = useAuth();
 
 // Filter status state ('ALL', 'PAID', 'DUE', 'VACANT')
 const activeStatusFilter = ref('ALL');
@@ -64,7 +66,7 @@ const printMonthlyStatement = () => {
         <title>Monthly Financial Statement - ${selectedMonth.value}</title>
         <style>
           body { font-family: sans-serif; padding: 30px; color: #0f172a; }
-          .header { border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+          .header { border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
           .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; }
           .metric { font-size: 12px; color: #475569; }
           .metric strong { display: block; font-size: 16px; color: #0f172a; margin-top: 4px; }
@@ -75,10 +77,8 @@ const printMonthlyStatement = () => {
       </head>
       <body>
         <div class="header">
-          <div>
-            <h2>RENT LEDGER - MONTHLY FINANCIAL STATEMENT</h2>
-            <p>Cycle: <strong>${selectedMonth.value}</strong> | Issued: ${new Date().toLocaleDateString()}</p>
-          </div>
+          <h2>RENT LEDGER - MONTHLY FINANCIAL STATEMENT</h2>
+          <p>Cycle: <strong>${selectedMonth.value}</strong> | Issued: ${new Date().toLocaleDateString()}</p>
         </div>
 
         <div class="summary-grid">
@@ -124,35 +124,64 @@ const printMonthlyStatement = () => {
     <!-- Action Header Bar -->
     <div class="bg-slate-950/80 border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div>
-        <h2 class="text-base font-bold text-white tracking-tight">Executive Dashboard Overview</h2>
-        <p class="text-xs text-slate-400">Monitor live collections, occupancy rates, and generate executive statements for cycle .</p>
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-bold text-white tracking-tight">
+            {{ isManager ? 'Caretaker Operational Dashboard' : 'Executive Dashboard Overview' }}
+          </h2>
+          <span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md text-[10px] font-bold uppercase">
+            {{ currentUser?.role }}
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5">
+          {{ isManager 
+            ? 'Monitor daily tenant collections, occupancy, and pending unit balances.' 
+            : 'Monitor live collections, occupancy rates, and generate executive statements.' 
+          }}
+        </p>
       </div>
-      <ActionButton variant="primary" @click="printMonthlyStatement">
-         Print Monthly Statement
+
+      <!-- Print Statement available to Admins & Owners -->
+      <ActionButton v-if="isAdmin || isOwner" variant="primary" @click="printMonthlyStatement">
+        Print Monthly Statement
       </ActionButton>
     </div>
 
-    <!-- 1. Top Summary Metric Cards (Clean & Declarative) -->
+    <!-- 1. Top Summary Metric Cards (Role-Adaptive) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Collected (Hidden or restricted for pure managers if needed, shown here for all for collection tracking) -->
       <MetricCard 
         title="Total Collected" 
         :value="formatKSh(stats.totalCollected)" 
         :subtitle="`${stats.collectionRate}% collection rate`" 
         valueColor="text-emerald-400" 
       />
+      
+      <!-- Outstanding Arrears -->
       <MetricCard 
         title="Outstanding Arrears" 
         :value="formatKSh(stats.totalOutstanding)" 
         subtitle="Unpaid cumulative balances" 
         valueColor="text-rose-400" 
       />
+      
+      <!-- Occupancy Rate -->
       <MetricCard 
         title="Occupancy Rate" 
         :value="`${stats.occupancyRate}%`" 
         :subtitle="`${stats.occupiedUnits} of ${stats.totalUnits} units occupied`" 
         valueColor="text-blue-400" 
       />
+
+      <!-- Net Operating Income (Hidden for Managers, visible for Admin & Owner) -->
       <MetricCard 
+        v-if="isAdmin || isOwner"
+        title="Net Operating Income" 
+        :value="formatKSh(financialSummary.netOperatingIncome)" 
+        subtitle="After operating expenses" 
+        valueColor="text-indigo-400" 
+      />
+      <MetricCard 
+        v-else
         title="Portfolio Units" 
         :value="stats.totalUnits" 
         subtitle="Registered properties" 

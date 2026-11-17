@@ -10,7 +10,7 @@ defineProps<{
 const emit = defineEmits(['close']);
 
 const router = useRouter();
-const { logout } = useAuth();
+const { currentUser, logout } = useAuth();
 
 const handleLogout = () => {
   logout();
@@ -42,7 +42,9 @@ const handleLogout = () => {
             </div>
             <div>
               <h1 class="text-sm font-bold text-white tracking-tight">Rent Ledger</h1>
-              <p class="text-[10px] text-slate-400 font-medium">Admin Workspace</p>
+              <p class="text-[10px] text-slate-400 font-medium capitalize">
+                {{ currentUser?.role || 'admin' }} Workspace
+              </p>
             </div>
           </div>
           
@@ -86,12 +88,12 @@ const handleLogout = () => {
           </router-link>
 
           <router-link 
-            to="/portability" 
+            to="/settings" 
             @click="emit('close')"
             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition" 
             active-class="!bg-blue-600 !text-white font-bold shadow-lg shadow-blue-600/30"
           >
-            Data Portability
+            {{ currentUser?.role === 'manager' ? 'Preferences' : 'System Settings' }}
           </router-link>
         </div>
 
@@ -99,6 +101,18 @@ const handleLogout = () => {
 
       <!-- Bottom Actions -->
       <div class="p-4 border-t border-slate-900 bg-slate-950/50 space-y-3">
+        
+        <!-- Active User Profile Badge -->
+        <div class="p-3 bg-slate-900/90 border border-slate-800 rounded-xl flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-xs font-bold text-white truncate">{{ currentUser?.name || 'Brian Kibet' }}</p>
+            <p class="text-[10px] text-slate-400 truncate">{{ currentUser?.organization || 'Rent Ledger HQ' }}</p>
+          </div>
+          <span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-[10px] font-bold uppercase shrink-0">
+            {{ currentUser?.role || 'admin' }}
+          </span>
+        </div>
+
         <BillingCyclePicker />
 
         <button 

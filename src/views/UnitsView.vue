@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useRentLedger, formatKSh } from '../composables/useRentLedger';
 import type { Unit } from '../composables/useRentLedger';
 import { useToast } from '../composables/useToast';
+import { useAuth } from '../composables/useAuth';
 
 // Reusable UI Components
 import StatusBadge from '../components/ui/StatusBadge.vue';
@@ -13,6 +14,10 @@ import CsvImportModal from '../components/CsvImportModal.vue';
 
 const { processedUnits, properties, addUnit, updateUnit, deleteUnit } = useRentLedger();
 const { addToast } = useToast();
+const { isAdmin, isOwner } = useAuth();
+
+// Only Admins and Owners can add, delete, or import CSV data
+const canModifyUnitsStructure = computed(() => isAdmin.value || isOwner.value);
 
 // Modal & Selection States
 const isHistoryModalOpen = ref(false);
@@ -94,6 +99,10 @@ const validateForm = () => {
 
 // Add Unit
 const handleAddUnit = () => {
+  if (!canModifyUnitsStructure.value) {
+    addToast('Access Denied', 'Managers cannot create new units.', 'error');
+    return;
+  }
   if (!validateForm()) return;
 
   addUnit({
@@ -144,6 +153,10 @@ const handleUpdateUnit = () => {
 
 // Delete Unit
 const handleDeleteUnit = (id: string, unitNum: string) => {
+  if (!canModifyUnitsStructure.value) {
+    addToast('Access Denied', 'Managers cannot delete units.', 'error');
+    return;
+  }
   if (confirm(`Are you sure you want to delete Unit ${unitNum}? This action cannot be undone.`)) {
     deleteUnit(id);
     addToast('Deleted', `Unit ${unitNum} removed`, 'info');
@@ -161,7 +174,8 @@ const handleDeleteUnit = (id: string, unitNum: string) => {
         <p class="text-xs text-slate-400">Manage tenant profiles, monthly rent allocations, and transaction ledgers.</p>
       </div>
       
-      <div class="flex gap-2">
+      <!-- Import CSV & Add Unit (Restricted to Admins & Owners) -->
+      <div v-if="canModifyUnitsStructure" class="flex gap-2">
         <ActionButton variant="outline" @click="isCsvModalOpen = true">
           Import CSV
         </ActionButton>
@@ -229,17 +243,18 @@ const handleDeleteUnit = (id: string, unitNum: string) => {
         <!-- Card Actions Footbar -->
         <div class="flex items-center gap-2 pt-2 border-t border-slate-900">
           <ActionButton variant="outline" class="flex-1" @click="openHistory(unit)">
-             History
+            History
           </ActionButton>
 
           <button 
             @click="openEditModal(unit)" 
             class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 text-xs font-semibold transition"
           >
-            Edit
+            {{ canModifyUnitsStructure ? 'Edit' : 'Tenant Details' }}
           </button>
 
           <button 
+            v-if="canModifyUnitsStructure"
             @click="handleDeleteUnit(unit.id, unit.unit_number)" 
             class="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/20 text-xs font-semibold transition"
           >
@@ -275,18 +290,18 @@ const handleDeleteUnit = (id: string, unitNum: string) => {
         <div class="space-y-3.5">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Property Name</label>
-            <input v-model="form.property_name" placeholder="e.g. Property A" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white outline-none focus:border-blue-500" />
+            <input v-model="form.property_name" :disabled="!canModifyUnitsStructure && isEditModalOpen" placeholder="e.g. Property A" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white outline-none focus:border-blue-500 disabled:opacity-60" />
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Unit Number / Code</label>
-            <input v-model="form.unit_number" placeholder="e.g. A1, B12" class="w-full px-3.5 py-2.5 bg-slate-900 border rounded-xl text-sm font-mono text-white outline-none" :class="formErrors.unit_number ? 'border-rose-500' : 'border-slate-800 focus:border-blue-500'" />
+            <input v-model="form.unit_number" :disabled="!canModifyUnitsStructure && isEditModalOpen" placeholder="e.g. A1, B12" class="w-full px-3.5 py-2.5 bg-slate-900 border rounded-xl text-sm font-mono text-white outline-none disabled:opacity-60" :class="formErrors.unit_number ? 'border-rose-500' : 'border-slate-800 focus:border-blue-500'" />
             <span v-if="formErrors.unit_number" class="text-[10px] text-rose-400 font-semibold mt-1 block">{{ formErrors.unit_number }}</span>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Monthly Rent (KSh)</label>
-            <input v-model="form.rent_amount" type="number" placeholder="e.g. 25000" class="w-full px-3.5 py-2.5 bg-slate-900 border rounded-xl text-sm font-mono text-white outline-none" :class="formErrors.rent_amount ? 'border-rose-500' : 'border-slate-800 focus:border-blue-500'" />
+            <input v-model="form.rent_amount" :disabled="!canModifyUnitsStructure && isEditModalOpen" type="number" placeholder="e.g. 25000" class="w-full px-3.5 py-2.5 bg-slate-900 border rounded-xl text-sm font-mono text-white outline-none disabled:opacity-60" :class="formErrors.rent_amount ? 'border-rose-500' : 'border-slate-800 focus:border-blue-500'" />
             <span v-if="formErrors.rent_amount" class="text-[10px] text-rose-400 font-semibold mt-1 block">{{ formErrors.rent_amount }}</span>
           </div>
 
